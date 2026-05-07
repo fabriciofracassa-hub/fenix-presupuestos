@@ -1,0 +1,129 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0; top: 0;
+  z-index: 100;
+  transition: transform 0.25s ease;
+}
+
+.sidebarTop {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  width: 140px;
+  display: block;
+}
+
+.nav {
+  flex: 1;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 20px;
+  color: var(--gris);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+}
+.navItem:hover {
+  color: var(--blanco);
+  background: var(--gris-light);
+  border-left-color: var(--naranja);
+}
+.navActive {
+  color: var(--naranja) !important;
+  background: rgba(255,150,16,0.08) !important;
+  border-left-color: var(--naranja) !important;
+}
+
+.navIcon {
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.navLabel { font-family: 'Krub', sans-serif; }
+
+.sidebarFooter {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.footerName { font-size: 0.8rem; font-weight: 700; color: var(--blanco); }
+.footerSub  { font-size: 0.7rem; color: var(--gris); margin-top: 2px; }
+
+/* ── Main ── */
+.main {
+  margin-left: 240px;
+  flex: 1;
+  padding: 32px;
+  min-height: 100vh;
+}
+
+/* ── Mobile ── */
+.mobileHeader {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  z-index: 200;
+}
+
+.hamburger {
+  background: transparent;
+  border: none;
+  color: var(--blanco);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.mobileLogo { width: 100px; }
+
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 99;
+}
+
+@media (max-width: 768px) {
+  .mobileHeader { display: flex; }
+  .sidebar {
+    transform: translateX(-100%);
+    top: 56px;
+    min-height: calc(100vh - 56px);
+  }
+  .sidebarOpen { transform: translateX(0); }
+  .main {
+    margin-left: 0;
+    padding: 80px 16px 24px;
+  }
+}
