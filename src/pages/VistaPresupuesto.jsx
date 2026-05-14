@@ -3,16 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getPresupuesto, updatePresupuesto } from "../lib/firestore";
 import { formatARS } from "../lib/calculos";
 import styles from "./VistaPresupuesto.module.css";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-import { LOGO_BASE64 } from "../lib/logoBase64";
 
 export default function VistaPresupuesto() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [p, setP] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [generando, setGenerando] = useState(false);
 
   useEffect(() => {
     getPresupuesto(id).then(data => { setP(data); setLoading(false); });
@@ -23,100 +19,10 @@ export default function VistaPresupuesto() {
     setP(prev => ({ ...prev, estado: "enviado" }));
   }
 
-  async function generarPDFBlob() {
-    const elemento = document.getElementById("presupuesto-doc");
-
-    // Reemplazar logo SVG por PNG base64 para html2canvas
-    const imgs = elemento.querySelectorAll("img");
-    const srcsOriginales = [];
-    imgs.forEach(img => {
-      srcsOriginales.push(img.src);
-      if (img.alt === "Fénix Grafismo") img.src = LOGO_BASE64;
-    });
-
-    const canvas = await html2canvas(elemento, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: "#181614",
-      logging: false,
-      onclone: (doc) => {
-        const style = doc.createElement("style");
-        style.innerHTML = `* { font-family: Arial, Helvetica, sans-serif !important; }`;
-        doc.head.appendChild(style);
-      }
-    });
-
-    // Restaurar src originales
-    imgs.forEach((img, i) => { img.src = srcsOriginales[i]; });
-
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "px",
-      format: [canvas.width / 2, canvas.height / 2],
-    });
-    pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
-    return pdf;
+  function imprimirPDF() {
+    marcarEnviado();
+    window.print();
   }
-
-  async function compartirWhatsApp() {
-    setGenerando(true);
-    try {
-      const pdf = await generarPDFBlob();
-      const nombreArchivo = `Presupuesto-${p.cliente || "Fenix"}-${p.tipoTrabajo || "trabajo"}.pdf`
-        .replace(/\s+/g, "-").replace(/[^a-zA-Z0-9\-_.]/g, "");
-
-      // Intentar compartir nativo (funciona en celular)
-      if (navigator.share && navigator.canShare) {
-        const blob = pdf.output("blob");
-        const file = new File([blob], nombreArchivo, { type: "application/pdf" });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Presupuesto ${p.cliente || ""}`,
-            text: `Presupuesto de Fénix Grafismo — Total: ${formatARS(p.resumen?.precioVenta || 0)}`,
-          });
-          if (p.estado !== "enviado") marcarEnviado();
-          return;
-        }
-      }
-
-      // Fallback PC: descargar el PDF y abrir WhatsApp Web
-      pdf.save(nombreArchivo);
-      setTimeout(() => {
-        const texto = encodeURIComponent(
-          `Hola${p.cliente ? ` ${p.cliente}` : ""}, te envío el presupuesto para *${p.tipoTrabajo || "el trabajo solicitado"}*.\nTotal: *${formatARS(p.resumen?.precioVenta || 0)}*\nAdjunto el PDF con el detalle.`
-        );
-        window.open(`https://wa.me/?text=${texto}`, "_blank");
-        if (p.estado !== "enviado") marcarEnviado();
-      }, 800);
-
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        console.error(err);
-        alert("No se pudo compartir. Usá el botón Imprimir / PDF para guardar el archivo.");
-      }
-    } finally {
-      setGenerando(false);
-    }
-  }
-
-  async function descargarPDF() {
-    setGenerando(true);
-    try {
-      const pdf = await generarPDFBlob();
-      const nombreArchivo = `Presupuesto-${p.cliente || "Fenix"}.pdf`
-        .replace(/\s+/g, "-").replace(/[^a-zA-Z0-9\-_.]/g, "");
-      pdf.save(nombreArchivo);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setGenerando(false);
-    }
-  }
-
-  function imprimir() { window.print(); }
 
   function formatFecha(ts) {
     if (!ts) return "";
@@ -129,33 +35,26 @@ export default function VistaPresupuesto() {
 
   return (
     <>
-      {/* ── Barra de acciones ── */}
+      {/* ── Barra de acciones — se oculta al imprimir ── */}
       <div className={styles.actionBar}>
         <button className="btn btn-ghost" onClick={() => navigate("/")}>← Volver</button>
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           <button className="btn btn-secondary" onClick={() => navigate(`/editar/${id}`)}>✏️ Editar</button>
-          <button className="btn btn-secondary" onClick={descargarPDF} disabled={generando}>
-            {generando ? "Generando..." : "⬇️ Descargar PDF"}
-          </button>
-          <button className="btn btn-secondary" onClick={imprimir}>🖨️ Imprimir</button>
-          <button className="btn btn-naranja" onClick={compartirWhatsApp} disabled={generando}>
-            {generando ? "Generando PDF..." : "📲 Enviar por WhatsApp"}
+          <button className="btn btn-naranja" onClick={imprimirPDF}>
+            📄 Imprimir / PDF
           </button>
         </div>
       </div>
 
-      {/* ── Documento del presupuesto ── */}
+      {/* ── Documento ── */}
       <div className={styles.documento} id="presupuesto-doc">
-
-        {/* Banda lateral PRESUPUESTO */}
         <div className={styles.bandaLateral}>
           <span className={styles.bandaTexto}>PRESUPUESTO</span>
         </div>
 
         <div className={styles.cuerpo}>
-          {/* Header */}
           <header className={styles.header}>
-            <img src="/logo-fenix.png" alt="Fénix Grafismo" className={styles.logo} />
+            <img src="/logo-fenix.svg" alt="Fénix Grafismo" className={styles.logo} />
             <div className={styles.headerRight}>
               <p className={styles.fecha}>{formatFecha(p.creadoEn)}</p>
               {p.estado === "enviado" && <span className={`badge badge-green ${styles.estadoBadge}`}>Enviado</span>}
@@ -164,7 +63,6 @@ export default function VistaPresupuesto() {
 
           <div className={styles.divider} />
 
-          {/* Cliente y precio */}
           <div className={styles.clienteSection}>
             <div>
               <p className={styles.clienteLabel}>Presupuesto para</p>
@@ -177,7 +75,6 @@ export default function VistaPresupuesto() {
             </div>
           </div>
 
-          {/* Descripción */}
           {p.descripcion && (
             <div className={styles.descripcionSection}>
               <p className={styles.sectionTitle}>Descripción del trabajo</p>
@@ -189,7 +86,6 @@ export default function VistaPresupuesto() {
             </div>
           )}
 
-          {/* Total visible para el cliente */}
           {p.resumen && (
             <div className={styles.totalClienteBox}>
               <div className={styles.totalFinal}>
@@ -199,7 +95,6 @@ export default function VistaPresupuesto() {
             </div>
           )}
 
-          {/* Footer */}
           <footer className={styles.footer}>
             <div className={styles.footerContacto}>
               <span className={styles.footerItem}>
@@ -217,7 +112,7 @@ export default function VistaPresupuesto() {
                       <stop offset="100%" stopColor="#bc1888"/>
                     </linearGradient>
                   </defs>
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                 </svg>
                 @fenixgrafismo
               </span>
