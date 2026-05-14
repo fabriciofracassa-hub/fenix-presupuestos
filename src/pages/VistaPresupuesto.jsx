@@ -5,6 +5,7 @@ import { formatARS } from "../lib/calculos";
 import styles from "./VistaPresupuesto.module.css";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { LOGO_BASE64 } from "../lib/logoBase64";
 
 export default function VistaPresupuesto() {
   const { id } = useParams();
@@ -24,12 +25,31 @@ export default function VistaPresupuesto() {
 
   async function generarPDFBlob() {
     const elemento = document.getElementById("presupuesto-doc");
+
+    // Reemplazar temporalmente img src con base64 para que html2canvas lo capture
+    const imgs = elemento.querySelectorAll("img");
+    const srcsOriginales = [];
+    imgs.forEach(img => {
+      srcsOriginales.push(img.src);
+      if (img.src.includes("logo-fenix")) img.src = LOGO_BASE64;
+    });
+
     const canvas = await html2canvas(elemento, {
       scale: 2,
       useCORS: true,
+      allowTaint: true,
       backgroundColor: "#181614",
       logging: false,
+      onclone: (doc) => {
+        // Forzar fuente fallback en el clon para evitar fuentes no cargadas
+        const style = doc.createElement("style");
+        style.innerHTML = `* { font-family: Arial, sans-serif !important; }`;
+        doc.head.appendChild(style);
+      }
     });
+
+    // Restaurar src originales
+    imgs.forEach((img, i) => { img.src = srcsOriginales[i]; });
 
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({
@@ -38,7 +58,6 @@ export default function VistaPresupuesto() {
       format: [canvas.width / 2, canvas.height / 2],
     });
     pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
-
     return pdf;
   }
 
