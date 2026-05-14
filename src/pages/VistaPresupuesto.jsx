@@ -3,12 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getPresupuesto, updatePresupuesto } from "../lib/firestore";
 import { formatARS } from "../lib/calculos";
 import styles from "./VistaPresupuesto.module.css";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 export default function VistaPresupuesto() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [p, setP] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [generando, setGenerando] = useState(false);
 
   useEffect(() => {
     getPresupuesto(id).then(data => { setP(data); setLoading(false); });
@@ -19,13 +22,80 @@ export default function VistaPresupuesto() {
     setP(prev => ({ ...prev, estado: "enviado" }));
   }
 
-  function compartirWhatsApp() {
-    const url = encodeURIComponent(window.location.href);
-    const texto = encodeURIComponent(
-      `Hola${p.cliente ? ` ${p.cliente}` : ""}, te envío el presupuesto para *${p.tipoTrabajo || "el trabajo solicitado"}*.\n\nTotal: *${formatARS(p.resumen?.precioVenta || 0)}*\n\nPodés verlo acá: `
-    );
-    window.open(`https://wa.me/549${texto}${url}`, "_blank");
-    if (p.estado !== "enviado") marcarEnviado();
+  async function generarPDFBlob() {
+    const elemento = document.getElementById("presupuesto-doc");
+    const canvas = await html2canvas(elemento, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#181614",
+      logging: false,
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "px",
+      format: [canvas.width / 2, canvas.height / 2],
+    });
+    pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+
+    return pdf;
+  }
+
+  async function compartirWhatsApp() {
+    setGenerando(true);
+    try {
+      const pdf = await generarPDFBlob();
+      const nombreArchivo = `Presupuesto-${p.cliente || "Fenix"}-${p.tipoTrabajo || "trabajo"}.pdf`
+        .replace(/\s+/g, "-").replace(/[^a-zA-Z0-9\-_.]/g, "");
+
+      // Intentar compartir nativo (funciona en celular)
+      if (navigator.share && navigator.canShare) {
+        const blob = pdf.output("blob");
+        const file = new File([blob], nombreArchivo, { type: "application/pdf" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Presupuesto ${p.cliente || ""}`,
+            text: `Presupuesto de Fénix Grafismo — Total: ${formatARS(p.resumen?.precioVenta || 0)}`,
+          });
+          if (p.estado !== "enviado") marcarEnviado();
+          return;
+        }
+      }
+
+      // Fallback PC: descargar el PDF y abrir WhatsApp Web
+      pdf.save(nombreArchivo);
+      setTimeout(() => {
+        const texto = encodeURIComponent(
+          `Hola${p.cliente ? ` ${p.cliente}` : ""}, te envío el presupuesto para *${p.tipoTrabajo || "el trabajo solicitado"}*.\nTotal: *${formatARS(p.resumen?.precioVenta || 0)}*\nAdjunto el PDF con el detalle.`
+        );
+        window.open(`https://wa.me/?text=${texto}`, "_blank");
+        if (p.estado !== "enviado") marcarEnviado();
+      }, 800);
+
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        console.error(err);
+        alert("No se pudo compartir. Usá el botón Imprimir / PDF para guardar el archivo.");
+      }
+    } finally {
+      setGenerando(false);
+    }
+  }
+
+  async function descargarPDF() {
+    setGenerando(true);
+    try {
+      const pdf = await generarPDFBlob();
+      const nombreArchivo = `Presupuesto-${p.cliente || "Fenix"}.pdf`
+        .replace(/\s+/g, "-").replace(/[^a-zA-Z0-9\-_.]/g, "");
+      pdf.save(nombreArchivo);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGenerando(false);
+    }
   }
 
   function imprimir() { window.print(); }
@@ -41,14 +111,17 @@ export default function VistaPresupuesto() {
 
   return (
     <>
-      {/* ── Barra de acciones (solo pantalla, no se imprime) ── */}
+      {/* ── Barra de acciones ── */}
       <div className={styles.actionBar}>
         <button className="btn btn-ghost" onClick={() => navigate("/")}>← Volver</button>
-        <div style={{ display:"flex", gap:10 }}>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           <button className="btn btn-secondary" onClick={() => navigate(`/editar/${id}`)}>✏️ Editar</button>
-          <button className="btn btn-secondary" onClick={imprimir}>🖨️ Imprimir / PDF</button>
-          <button className="btn btn-naranja" onClick={compartirWhatsApp}>
-            <span>📲</span> Enviar por WhatsApp
+          <button className="btn btn-secondary" onClick={descargarPDF} disabled={generando}>
+            {generando ? "Generando..." : "⬇️ Descargar PDF"}
+          </button>
+          <button className="btn btn-secondary" onClick={imprimir}>🖨️ Imprimir</button>
+          <button className="btn btn-naranja" onClick={compartirWhatsApp} disabled={generando}>
+            {generando ? "Generando PDF..." : "📲 Enviar por WhatsApp"}
           </button>
         </div>
       </div>
