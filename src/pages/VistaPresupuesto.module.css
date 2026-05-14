@@ -99,9 +99,11 @@
 .precioBox {
   background: var(--rojo);
   border-radius: 10px;
-  padding: 16px 24px;
+  padding: 16px 20px;
   text-align: center;
-  min-width: 180px;
+  min-width: 160px;
+  max-width: 220px;
+  flex-shrink: 0;
 }
 .precioLabel {
   font-size: 0.7rem;
@@ -113,9 +115,10 @@
 }
 .precioValor {
   font-family: 'Krub', sans-serif;
-  font-size: 1.8rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: var(--blanco);
+  white-space: nowrap;
 }
 
 /* ── Secciones ── */

@@ -26,12 +26,12 @@ export default function VistaPresupuesto() {
   async function generarPDFBlob() {
     const elemento = document.getElementById("presupuesto-doc");
 
-    // Reemplazar temporalmente img src con base64 para que html2canvas lo capture
+    // Reemplazar logo SVG por PNG base64 para html2canvas
     const imgs = elemento.querySelectorAll("img");
     const srcsOriginales = [];
     imgs.forEach(img => {
       srcsOriginales.push(img.src);
-      if (img.src.includes("logo-fenix")) img.src = LOGO_BASE64;
+      if (img.alt === "Fénix Grafismo") img.src = LOGO_BASE64;
     });
 
     const canvas = await html2canvas(elemento, {
@@ -41,9 +41,8 @@ export default function VistaPresupuesto() {
       backgroundColor: "#181614",
       logging: false,
       onclone: (doc) => {
-        // Forzar fuente fallback en el clon para evitar fuentes no cargadas
         const style = doc.createElement("style");
-        style.innerHTML = `* { font-family: Arial, sans-serif !important; }`;
+        style.innerHTML = `* { font-family: Arial, Helvetica, sans-serif !important; }`;
         doc.head.appendChild(style);
       }
     });
@@ -156,7 +155,7 @@ export default function VistaPresupuesto() {
         <div className={styles.cuerpo}>
           {/* Header */}
           <header className={styles.header}>
-            <img src="/logo-fenix.svg" alt="Fénix Grafismo" className={styles.logo} />
+            <img src="/logo-fenix.png" alt="Fénix Grafismo" className={styles.logo} />
             <div className={styles.headerRight}>
               <p className={styles.fecha}>{formatFecha(p.creadoEn)}</p>
               {p.estado === "enviado" && <span className={`badge badge-green ${styles.estadoBadge}`}>Enviado</span>}
