@@ -173,10 +173,18 @@ tr:hover td { background: var(--gris-light); }
 
 /* ── Print global ── */
 @media print {
-  /* Ocultar todo excepto el documento del presupuesto */
+  /* Forzar colores de fondo — crítico para Chrome mobile */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Ocultar todo excepto el documento */
   body * { visibility: hidden; }
   #presupuesto-doc,
   #presupuesto-doc * { visibility: visible; }
+
   #presupuesto-doc {
     position: fixed;
     top: 0; left: 0;
@@ -184,6 +192,6 @@ tr:hover td { background: var(--gris-light); }
     padding: 0;
     margin: 0;
   }
-  /* Colores oscuros para impresión */
+
   @page { margin: 0; size: A4; }
 }
